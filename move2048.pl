@@ -95,13 +95,27 @@ sub show_table {
     my $table = shift;
     my $row;
     my $column;
-    #print "show table:\n";
-    foreach $row (@$table) {
-        my @queue;
-        foreach $column (@$row) {
-            push(@queue,$column);
+    if($width eq 4) {
+        foreach $row (@$table) {
+            my @queue;
+            foreach $column (@$row) {
+                push(@queue,$column);
+            }
+            print("-"x33);
+            print "\n";
+            printf("|%-s\t|%-s\t|%-s\t|%-s\t|\n", $queue[0], $queue[1],$queue[2],$queue[3]);
         }
-        print "@queue\n";
+        print("-"x33);
+        print "\n";
+    }
+    else {
+        foreach $row (@$table) {
+            my @queue;
+            foreach $column (@$row) {
+                push(@queue,$column);
+            }
+            print "@queue\n";
+        }
     }
     #print "show table end.\n";
 }
@@ -228,18 +242,18 @@ sub left_to_right {
 }
 
 sub cells_rotate_to_left {
-    my $table = shift;
+    my ($table,$move) = @_;
     my $ret_table = [[]];
-    if($movement eq "left") {
+    if($move eq "left") {
         $ret_table = $table;
     }
-    elsif($movement eq "up") {
+    elsif($move eq "up") {
         $ret_table = up_to_left($table);
     }
-    elsif($movement eq "down") {
+    elsif($move eq "down") {
         $ret_table = down_to_left($table);
     }
-    elsif($movement eq "right") {
+    elsif($move eq "right") {
         $ret_table = right_to_left($table);
     }
     else {
@@ -249,18 +263,18 @@ sub cells_rotate_to_left {
 }
 
 sub cells_rotate_to_original {
-    my $table = shift;
+    my ($table,$move) = @_;
     my $ret_table = [[]];
-    if($movement eq "left") {
+    if($move eq "left") {
         $ret_table = $table;
     }
-    elsif($movement eq "up") {
+    elsif($move eq "up") {
         $ret_table = left_to_up($table);
     }
-    elsif($movement eq "down") {
+    elsif($move eq "down") {
         $ret_table = left_to_down($table);
     }
-    elsif($movement eq "right") {
+    elsif($move eq "right") {
         $ret_table = left_to_right($table);
     }
     else {
@@ -306,11 +320,48 @@ sub move_queues {
 }
 
 sub change_table_due_to_move {
-    $a_ref = cells_rotate_to_left($a_ref);
-    cells_fill_queues($a_ref);
+    my ($table,$move) = @_;
+    $table = cells_rotate_to_left($table,$move);
+    cells_fill_queues($table);
     move_queues();
-    $a_ref = queues_fill_cells();
-    $a_ref = cells_rotate_to_original($a_ref);
+    $table = queues_fill_cells();
+    $table = cells_rotate_to_original($table,$move);
+    $table;
+}
+
+sub compare_table {
+    my ($a_ref,$b_ref) = @_;
+    my $i;
+    my $j;
+    for($i=0;$i<$width;$i++) {
+        for($j=0;$j<$width;$j++) {
+            if($a_ref->[$i][$j] eq $b_ref->[$i][$j]) {
+            }
+            else {
+                return 0;
+            }
+        }
+    }
+    1;
+}
+
+sub over_check {
+    my $table = shift;
+    my $table_copy = [@$table];#copy one table, do not change the orginal table
+    $table_copy = change_table_due_to_move($table_copy,"left");
+    if(compare_table($table,$table_copy)) {
+        $table_copy = change_table_due_to_move($table_copy,"right");
+        if(compare_table($table,$table_copy)) {
+            $table_copy = change_table_due_to_move($table_copy,"up");
+            if(compare_table($table,$table_copy)) {
+                $table_copy = change_table_due_to_move($table_copy,"down");
+                if(compare_table($table,$table_copy)) {
+                    return 1;
+                }
+            }
+        }
+    }
+    0;
 }
 
 BEGIN {
@@ -337,8 +388,19 @@ while (<>) {
         $movement = $tmp;
         #print "normal\n";
     }
-    change_table_due_to_move();
-    #show_table($a_ref);
+    my $b_ref = [@$a_ref];
+    $a_ref = change_table_due_to_move($a_ref,$movement);
+    if(compare_table($a_ref,$b_ref)) { # can not move towards that direction, means nothing is changed with the table after the movement
+        show_table($a_ref);
+        next;
+    }
+    else {
+    }
     add_one_randomize_data($a_ref);
     show_table($a_ref);
+    if(over_check($a_ref)) {
+        print "Can not move, game over!\n";
+        exit 0;
+    }
 }
+
